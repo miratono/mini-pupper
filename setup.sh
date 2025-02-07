@@ -18,26 +18,21 @@ sudo apt-get install -y acl
 pip install jupyterlab notebook
 
 # 4-5. Configure UFW
-sudo ufw allow in(or out) to any
+sudo ufw allow in
+sudo ufw allow out
 echo "y" | sudo ufw enable
 
-# 6. First reboot
-echo "System will reboot in 5 seconds..."
-sleep 5
-sudo reboot
-
-# Create a second script that will run after first reboot
-cat > ~/post_reboot_script.sh << 'EOL'
+# Create second phase script
+cat << 'EOL' > ~/post_reboot1.sh
 #!/bin/bash
 
-# Get current username again after reboot
 CURRENT_USER=$(whoami)
 
 # 8. Generate Jupyter config
 jupyter notebook --generate-config
 
 # 9. Configure Jupyter
-cat > ~/.jupyter/jupyter_notebook_config.py << EOF
+cat << EOF > ~/.jupyter/jupyter_notebook_config.py
 c = get_config()
 c.NotebookApp.ip = '0.0.0.0'
 c.NotebookApp.token = ''
@@ -47,7 +42,7 @@ c.NotebookApp.open_browser = False
 EOF
 
 # 10. Create Jupyter service
-sudo bash -c "cat > /etc/systemd/system/jupyter.service << EOF
+sudo bash -c "cat << EOF > /etc/systemd/system/jupyter.service
 [Unit]
 Description=Jupyter
 
@@ -63,14 +58,8 @@ EOF"
 sudo systemctl enable jupyter.service
 sudo systemctl start jupyter.service
 
-# 13. Second reboot
-echo "System will reboot in 5 seconds..."
-sleep 5
-sudo reboot
-EOL
-
-# Create final script for Docker installation
-cat > ~/docker_install_script.sh << 'EOL'
+# Create final phase script
+cat << 'EOF' > ~/final_setup.sh
 #!/bin/bash
 
 CURRENT_USER=$(whoami)
@@ -83,44 +72,58 @@ for pkg in docker.io docker-doc docker-compose docker-compose-v2 podman-docker c
     sudo apt-get remove -y $pkg
 done
 
-# 16-17. Install Docker
+# 16. Install Docker prerequisites and add GPG key
 sudo apt-get update
 sudo apt-get install -y ca-certificates curl
 sudo install -m 0755 -d /etc/apt/keyrings
 sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
 sudo chmod a+r /etc/apt/keyrings/docker.asc
 
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-  $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+# Add Docker repository
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
 sudo apt-get update
+
+# 17. Install Docker packages
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
 # 18. Install Docker Compose
 sudo apt install -y docker-compose
 
-# 19-20. Setup Docker permissions
-sudo groupadd docker || true
+# 19-20. Setup Docker group and permissions
+sudo groupadd docker 2>/dev/null || true
 sudo usermod -aG docker ${CURRENT_USER}
 
 # 21. Apply new group membership
 newgrp docker
 
+# Remove startup scripts
+crontab -r
+
 # 22. Final reboot
-echo "System will reboot in 5 seconds..."
+echo "Installation complete. System will reboot in 5 seconds..."
+sleep 5
+sudo reboot
+EOF
+
+chmod +x ~/final_setup.sh
+
+# Schedule the final setup script
+echo "@reboot sleep 30 && ~/final_setup.sh" | crontab -
+
+# 13. Reboot system
+echo "First phase complete. System will reboot in 5 seconds..."
 sleep 5
 sudo reboot
 EOL
 
-# Make the scripts executable
-chmod +x ~/post_reboot_script.sh
-chmod +x ~/docker_install_script.sh
+# Make post-reboot script executable
+chmod +x ~/post_reboot1.sh
 
-# Add scripts to startup
-echo "@reboot sleep 30 && ~/post_reboot_script.sh" | crontab -
-echo "@reboot sleep 30 && ~/docker_install_script.sh" | crontab -
+# Schedule the post-reboot script
+echo "@reboot sleep 30 && ~/post_reboot1.sh" | crontab -
 
-# Start the sequence
-echo "Starting installation sequence..."
+# 6. Initial reboot
+echo "Initial setup complete. System will reboot in 5 seconds..."
+sleep 5
+sudo reboot
