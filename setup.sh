@@ -23,7 +23,7 @@ sudo ufw allow out
 echo "y" | sudo ufw enable
 
 # Create second phase script
-cat << 'EOL' > ~/post_reboot1.sh
+cat > ~/post_reboot1.sh << 'EOL'
 #!/bin/bash
 
 CURRENT_USER=$(whoami)
@@ -32,7 +32,7 @@ CURRENT_USER=$(whoami)
 jupyter notebook --generate-config
 
 # 9. Configure Jupyter
-cat << EOF > ~/.jupyter/jupyter_notebook_config.py
+cat > ~/.jupyter/jupyter_notebook_config.py << EOF
 c = get_config()
 c.NotebookApp.ip = '0.0.0.0'
 c.NotebookApp.token = ''
@@ -42,7 +42,7 @@ c.NotebookApp.open_browser = False
 EOF
 
 # 10. Create Jupyter service
-sudo bash -c "cat << EOF > /etc/systemd/system/jupyter.service
+sudo bash -c "cat > /etc/systemd/system/jupyter.service << EOF
 [Unit]
 Description=Jupyter
 
@@ -59,7 +59,7 @@ sudo systemctl enable jupyter.service
 sudo systemctl start jupyter.service
 
 # Create final phase script
-cat << 'EOF' > ~/final_setup.sh
+cat > ~/final_setup.sh << 'EOF'
 #!/bin/bash
 
 CURRENT_USER=$(whoami)
