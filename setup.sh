@@ -22,7 +22,7 @@ sudo ufw default ALLOW
 echo "y" | sudo ufw enable
 
 # Create second phase script
-cat > ~/post_reboot1.sh << 'EOL'
+cat > ~/post_setup.sh << 'EOL'
 #!/bin/bash
 
 CURRENT_USER=$(whoami)
@@ -116,11 +116,11 @@ sleep 5
 sudo reboot
 EOL
 
-# Make post-reboot script executable
-chmod +x ~/post_reboot1.sh
+# Make post-setup script executable
+chmod +x ~/post_setup.sh
 
-# Schedule the post-reboot script
-echo "@reboot sleep 30 && ~/post_reboot1.sh" | crontab -
+# Schedule the post-setup script
+echo "@reboot sleep 30 && ~/post_setup.sh" | crontab -
 
 # 6. Initial reboot
 echo "Initial setup complete. System will reboot in 5 seconds..."
